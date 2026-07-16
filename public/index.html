@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Split · Receipt Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #171a23;
+    --surface-2: #1e222e;
+    --surface-3: #262b3a;
+    --line: #2c3242;
+    --text: #e7e9ef;
+    --muted: #8b92a6;
+    --faint: #5b6274;
+    --accent: #7c8bff;
+    --accent-ink: #0f1117;
+    --good: #34d399;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --radius: 16px;
+    --shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: radial-gradient(1200px 600px at 80% -10%, #1b2030 0%, var(--bg) 55%) fixed;
+    color: var(--text);
+    line-height: 1.5;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,h2,h3 { font-family: 'Space Grotesk', 'Inter', sans-serif; letter-spacing: -.02em; }
+  button, input, select { font-family: inherit; font-size: inherit; color: inherit; }
+  button { cursor: pointer; border: none; background: none; }
+  input:focus-visible, button:focus-visible, select:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+
+  /* ---- Layout ---- */
+  header.topbar {
+    position: sticky; top: 0; z-index: 30;
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px clamp(16px, 4vw, 40px);
+    background: rgba(15,17,23,.78);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: 'Space Grotesk'; font-weight: 700; font-size: 19px; }
+  .logo {
+    width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--accent), #b794ff); color: var(--accent-ink);
+    font-size: 17px; box-shadow: 0 4px 14px rgba(124,139,255,.4);
+  }
+  .brand small { color: var(--muted); font-weight: 500; font-family: 'Inter'; font-size: 12px; }
+  .spacer { flex: 1; }
+  .bill-select {
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--text);
+    border-radius: 10px; padding: 9px 12px; max-width: 46vw; font-weight: 500;
+    appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%238b92a6' stroke-width='2'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--surface-2); border: 1px solid var(--line);
+    padding: 9px 14px; border-radius: 10px; font-weight: 600; font-size: 14px;
+    transition: background .15s, border-color .15s, transform .05s;
+  }
+  .btn:hover { background: var(--surface-3); border-color: #3a4considerable; }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .btn.primary:hover { filter: brightness(1.07); }
+  .btn.ghost { background: transparent; }
+  .btn.icon { padding: 9px; }
+
+  main {
+    max-width: 1180px; margin: 0 auto; padding: clamp(18px, 3vw, 34px) clamp(16px, 4vw, 40px) 120px;
+    display: grid; grid-template-columns: 1fr 400px; gap: 24px; align-items: start;
+  }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+  }
+  .card-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 16px 18px; border-bottom: 1px solid var(--line);
+  }
+  .card-head h2 { font-size: 15px; font-weight: 700; }
+  .card-head .count { color: var(--faint); font-size: 13px; font-weight: 500; }
+
+  /* ---- Bill title ---- */
+  .bill-title-wrap { padding: 4px 0 20px; }
+  .bill-title {
+    font-size: clamp(26px, 4vw, 36px); font-weight: 800; width: 100%;
+    background: transparent; border: none; border-radius: 10px; padding: 4px 8px; margin-left: -8px;
+  }
+  .bill-title:hover { background: var(--surface); }
+  .bill-sub { color: var(--muted); font-size: 14px; padding-left: 1px; }
+
+  /* ---- People bar ---- */
+  .people-row { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 18px; }
+  .person-tag {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--surface-2); border: 1px solid var(--line);
+    padding: 6px 8px 6px 6px; border-radius: 999px; font-weight: 600; font-size: 14px;
+  }
+  .avatar {
+    width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+    color: #fff; font-size: 12px; font-weight: 700; flex: none;
+  }
+  .person-tag .x { color: var(--faint); padding: 0 4px; font-size: 15px; line-height: 1; border-radius: 6px; }
+  .person-tag .x:hover { color: var(--danger); background: var(--surface-3); }
+  .add-person {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px dashed var(--line); color: var(--muted);
+    padding: 6px 14px; border-radius: 999px; font-weight: 600; font-size: 14px;
+  }
+  .add-person:hover { color: var(--text); border-color: var(--accent); }
+
+  /* ---- Items ---- */
+  .items { display: flex; flex-direction: column; }
+  .item {
+    padding: 14px 18px; border-bottom: 1px solid var(--line);
+  }
+  .item:last-child { border-bottom: none; }
+  .item-main { display: flex; align-items: center; gap: 12px; }
+  .item-name { font-weight: 600; flex: 1; min-width: 0;
+    background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 5px 7px; }
+  .item-name:hover { border-color: var(--line); }
+  .qty-price { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 14px; }
+  .mini {
+    width: 52px; text-align: center; background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: 8px; padding: 5px 4px; font-weight: 600; color: var(--text);
+  }
+  .mini.price { width: 78px; text-align: right; }
+  .item-total { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 74px; text-align: right; }
+  .del { color: var(--faint); padding: 5px; border-radius: 8px; }
+  .del:hover { color: var(--danger); background: var(--surface-2); }
+
+  .assign { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; padding-left: 2px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--muted);
+    padding: 4px 10px 4px 5px; border-radius: 999px; font-size: 13px; font-weight: 600;
+    transition: all .12s;
+  }
+  .chip .dot { width: 18px; height: 18px; border-radius: 50%; display:grid; place-items:center; color:#fff; font-size:10px; font-weight:700; opacity:.55; }
+  .chip.on { color: var(--text); border-color: transparent; }
+  .chip.on .dot { opacity: 1; }
+  .chip:hover { border-color: var(--accent); }
+  .stepper { display: inline-flex; align-items: center; gap: 2px; margin-left: 2px; padding-left: 6px; border-left: 1px solid rgba(255,255,255,.15); }
+  .stepper button { width: 18px; height: 18px; border-radius: 5px; color: inherit; font-weight: 700; font-size: 13px; display:grid; place-items:center; }
+  .stepper button:hover { background: rgba(255,255,255,.14); }
+  .stepper span { min-width: 12px; text-align: center; font-variant-numeric: tabular-nums; }
+  .unassigned-flag { color: var(--warn); font-size: 12px; font-weight: 600; margin-top: 8px; display: inline-flex; align-items: center; gap: 5px; }
+
+  /* ---- Add item form ---- */
+  .add-item { display: flex; gap: 8px; padding: 14px 18px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .add-item input {
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; color: var(--text);
+  }
+  .add-item .f-name { flex: 1; min-width: 130px; }
+  .add-item .f-qty { width: 66px; text-align: center; }
+  .add-item .f-price { width: 96px; }
+
+  /* ---- Summary ---- */
+  .summary { position: sticky; top: 84px; }
+  .totals-controls { padding: 16px 18px; display: grid; gap: 14px; }
+  .ctrl-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .ctrl-row label { color: var(--muted); font-size: 14px; font-weight: 500; }
+  .ctrl-input { display: flex; align-items: center; gap: 6px; }
+  .ctrl-input .pre, .ctrl-input .post { color: var(--faint); font-size: 14px; }
+  .ctrl-input input {
+    width: 88px; text-align: right; background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 7px 10px; color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums;
+  }
+  .tip-toggle { display: inline-flex; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .tip-toggle button { padding: 6px 10px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .tip-toggle button.active { background: var(--accent); color: var(--accent-ink); }
+  .tip-presets { display: flex; gap: 6px; }
+  .tip-presets button {
+    flex: 1; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+    padding: 7px 0; font-size: 13px; font-weight: 600; color: var(--muted);
+  }
+  .tip-presets button:hover { border-color: var(--accent); color: var(--text); }
+
+  .totals-lines { padding: 4px 18px 8px; border-top: 1px dashed var(--line); }
+  .tline { display: flex; justify-content: space-between; padding: 7px 0; font-size: 14px; }
+  .tline .lbl { color: var(--muted); }
+  .tline .val { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .tline.grand { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 12px; font-size: 17px; }
+  .tline.grand .val { font-weight: 800; }
+  .tline.grand .lbl { color: var(--text); font-weight: 700; font-family: 'Space Grotesk'; }
+
+  .breakdown { padding: 8px 18px 18px; }
+  .bd-title { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); font-weight: 700; margin: 10px 0 8px; }
+  .person-line {
+    display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 12px;
+    background: var(--surface-2); margin-bottom: 8px; border: 1px solid var(--line);
+  }
+  .person-line .who { flex: 1; min-width: 0; }
+  .person-line .who .nm { font-weight: 700; font-size: 15px; }
+  .person-line .who .meta { color: var(--muted); font-size: 12px; }
+  .person-line .amt { font-weight: 800; font-size: 17px; font-variant-numeric: tabular-nums; }
+  .balance-note { color: var(--faint); font-size: 12px; text-align: center; padding: 6px 0 0; }
+
+  .empty {
+    padding: 40px 20px; text-align: center; color: var(--muted);
+  }
+  .empty .big { font-size: 34px; margin-bottom: 8px; }
+  .empty p { font-size: 14px; max-width: 260px; margin: 0 auto; }
+
+  .toast {
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--surface-3); border: 1px solid var(--line); color: var(--text);
+    padding: 10px 18px; border-radius: 12px; font-weight: 600; font-size: 14px; box-shadow: var(--shadow);
+    opacity: 0; pointer-events: none; transition: all .25s; z-index: 60;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">₳</div>
+    <div>Split<br><small>receipt calculator</small></div>
+  </div>
+  <div class="spacer"></div>
+  <select class="bill-select" id="billSelect" aria-label="Select receipt"></select>
+  <button class="btn primary" id="newBillBtn" title="New receipt">＋ New</button>
+  <button class="btn icon ghost" id="deleteBillBtn" title="Delete this receipt" aria-label="Delete receipt">🗑</button>
+</header>
+
+<main id="app">
+  <section class="left">
+    <div class="bill-title-wrap">
+      <input class="bill-title" id="billTitle" placeholder="Untitled receipt" />
+      <div class="bill-sub" id="billSub"></div>
+    </div>
+
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-head"><h2>People</h2><span class="count" id="peopleCount"></span></div>
+      <div class="people-row" id="peopleRow"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Items</h2><span class="count" id="itemsCount"></span></div>
+      <div class="items" id="itemsList"></div>
+      <form class="add-item" id="addItemForm" autocomplete="off">
+        <input class="f-name" id="itName" placeholder="e.g. Margherita pizza" required />
+        <input class="f-qty" id="itQty" type="number" min="1" step="1" value="1" title="Quantity" />
+        <input class="f-price" id="itPrice" type="number" min="0" step="0.01" placeholder="0.00" title="Unit price" required />
+        <button class="btn primary" type="submit">Add</button>
+      </form>
+    </div>
+  </section>
+
+  <aside class="card summary">
+    <div class="card-head"><h2>Summary</h2></div>
+    <div class="totals-controls">
+      <div class="ctrl-row">
+        <label for="taxInput">Tax</label>
+        <div class="ctrl-input"><span class="pre">$</span><input id="taxInput" type="number" min="0" step="0.01" value="0" /></div>
+      </div>
+      <div class="ctrl-row">
+        <label>Tip</label>
+        <div class="tip-toggle" id="tipToggle">
+          <button data-mode="percent" class="active">%</button>
+          <button data-mode="amount">$</button>
+        </div>
+      </div>
+      <div class="tip-presets" id="tipPresets">
+        <button data-pct="15">15%</button>
+        <button data-pct="18">18%</button>
+        <button data-pct="20">20%</button>
+        <button data-pct="25">25%</button>
+      </div>
+      <div class="ctrl-row">
+        <label for="tipInput" id="tipLabel">Tip percentage</label>
+        <div class="ctrl-input"><span class="pre" id="tipPre">%</span><input id="tipInput" type="number" min="0" step="0.5" value="0" /></div>
+      </div>
+    </div>
+
+    <div class="totals-lines">
+      <div class="tline"><span class="lbl">Subtotal</span><span class="val" id="tSubtotal">$0.00</span></div>
+      <div class="tline"><span class="lbl">Tax</span><span class="val" id="tTax">$0.00</span></div>
+      <div class="tline"><span class="lbl">Tip</span><span class="val" id="tTip">$0.00</span></div>
+      <div class="tline grand"><span class="lbl">Total</span><span class="val" id="tGrand">$0.00</span></div>
+    </div>
+
+    <div class="breakdown">
+      <div class="bd-title">Who owes what</div>
+      <div id="breakdownList"></div>
+      <div class="balance-note" id="balanceNote"></div>
+    </div>
+  </aside>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (s, r=document) => r.querySelector(s);
+const money = n => '$' + (Math.round((n + Number.EPSILON) * 100) / 100).toFixed(2);
+const initials = name => name.trim().split(/\s+/).map(w => w[0]).slice(0,2).join('').toUpperCase() || '?';
+
+let state = { bills: [], bill: null };
+let saveTimer = {};
+
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+async function api(method, path, body) {
+  const res = await fetch('/api' + path, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) throw new Error('request failed');
+  return res.status === 204 ? null : res.json();
+}
+
+// ---------- Calculation ----------
+function compute(bill) {
+  const shareTotals = {}; // item_id -> total shares
+  bill.assignments.forEach(a => { shareTotals[a.item_id] = (shareTotals[a.item_id] || 0) + a.shares; });
+
+  const perItem = {};
+  let subtotal = 0;
+  bill.items.forEach(it => {
+    const total = (Number(it.price) || 0) * (Number(it.quantity) || 0);
+    perItem[it.id] = { total, assigned: shareTotals[it.id] > 0 };
+    subtotal += total;
+  });
+
+  const personSub = {};
+  bill.people.forEach(p => personSub[p.id] = 0);
+  let assignedSubtotal = 0;
+  bill.assignments.forEach(a => {
+    const item = perItem[a.item_id];
+    if (!item || !shareTotals[a.item_id]) return;
+    const cost = item.total * (a.shares / shareTotals[a.item_id]);
+    if (personSub[a.person_id] != null) { personSub[a.person_id] += cost; assignedSubtotal += cost; }
+  });
+
+  const tax = Number(bill.tax_amount) || 0;
+  const tip = bill.tip_mode === 'amount'
+    ? (Number(bill.tip_value) || 0)
+    : subtotal * ((Number(bill.tip_value) || 0) / 100);
+
+  const unassigned = subtotal - assignedSubtotal;
+
+  // Distribute tax & tip proportionally to each person's assigned subtotal
+  const people = bill.people.map(p => {
+    const sub = personSub[p.id] || 0;
+    const frac = assignedSubtotal > 0 ? sub / assignedSubtotal : 0;
+    const pTax = tax * frac, pTip = tip * frac;
+    return { ...p, sub, tax: pTax, tip: pTip, total: sub + pTax + pTip };
+  });
+
+  return { subtotal, tax, tip, grand: subtotal + tax + tip, people, unassigned, perItem, shareTotals };
+}
+
+// ---------- Rendering ----------
+function render() {
+  const b = state.bill;
+  // bill selector
+  const sel = $('#billSelect');
+  sel.innerHTML = state.bills.map(x =>
+    `<option value="${x.id}" ${b && x.id===b.id?'selected':''}>${escapeHtml(x.name || 'Untitled')}</option>`).join('');
+
+  if (!b) return;
+  $('#billTitle').value = b.name || '';
+  const c = compute(b);
+  const dt = new Date((b.created_at || '').replace(' ', 'T') + 'Z');
+  $('#billSub').textContent = (b.items.length ? b.items.length + ' item' + (b.items.length>1?'s':'') + ' · ' : '') +
+    (isNaN(dt) ? '' : 'created ' + dt.toLocaleDateString(undefined,{month:'short',day:'numeric'}));
+
+  renderPeople(b);
+  renderItems(b, c);
+  renderSummary(b, c);
+}
+
+function renderPeople(b) {
+  $('#peopleCount').textContent = b.people.length ? b.people.length + ' people' : '';
+  const row = $('#peopleRow');
+  row.innerHTML = b.people.map(p => `
+    <span class="person-tag" data-id="${p.id}">
+      <span class="avatar" style="background:${p.color}">${initials(p.name)}</span>
+      <span class="pname" contenteditable="false">${escapeHtml(p.name)}</span>
+      <button class="x" data-del-person="${p.id}" title="Remove">×</button>
+    </span>`).join('') +
+    `<button class="add-person" id="addPersonBtn">＋ Add person</button>`;
+}
+
+function renderItems(b, c) {
+  $('#itemsCount').textContent = b.items.length ? money(c.subtotal) : '';
+  const list = $('#itemsList');
+  if (!b.items.length) {
+    list.innerHTML = `<div class="empty"><div class="big">🧾</div><p>No items yet. Add what's on the receipt below to get started.</p></div>`;
+    return;
+  }
+  const shareOf = (itemId, personId) => {
+    const a = b.assignments.find(x => x.item_id===itemId && x.person_id===personId);
+    return a ? a.shares : 0;
+  };
+  list.innerHTML = b.items.map(it => {
+    const info = c.perItem[it.id];
+    const chips = b.people.map(p => {
+      const sh = shareOf(it.id, p.id);
+      const on = sh > 0;
+      return `<span class="chip ${on?'on':''}" style="${on?`background:${hexA(p.color,.18)};`:''}" data-item="${it.id}" data-person="${p.id}" data-share="${sh}">
+        <span class="dot" style="background:${p.color}">${initials(p.name)}</span>${escapeHtml(p.name)}
+        ${on?`<span class="stepper"><button data-step="-1" title="Fewer shares">−</button><span>${fmtShare(sh)}</span><button data-step="1" title="More shares">＋</button></span>`:''}
+      </span>`;
+    }).join('');
+    const flag = (!info.assigned && b.people.length)
+      ? `<div class="unassigned-flag">⚠ Nobody assigned — tap a person to split this item</div>` : '';
+    return `<div class="item" data-id="${it.id}">
+      <div class="item-main">
+        <input class="item-name" value="${escapeHtml(it.name)}" data-edit="name" />
+        <div class="qty-price">
+          <input class="mini qty" type="number" min="0" step="1" value="${trimNum(it.quantity)}" data-edit="quantity" title="Quantity" />
+          <span>×</span>
+          <input class="mini price" type="number" min="0" step="0.01" value="${trimNum(it.price)}" data-edit="price" title="Unit price" />
+        </div>
+        <span class="item-total">${money(info.total)}</span>
+        <button class="del" data-del-item="${it.id}" title="Delete item">🗑</button>
+      </div>
+      ${b.people.length ? `<div class="assign">${chips}</div>` : `<div class="unassigned-flag">Add people above to split this item</div>`}
+      ${flag}
+    </div>`;
+  }).join('');
+}
+
+function renderSummary(b, c) {
+  $('#taxInput').value = trimNum(b.tax_amount);
+  const isPct = b.tip_mode !== 'amount';
+  $('#tipToggle').querySelectorAll('button').forEach(x => x.classList.toggle('active', x.dataset.mode === b.tip_mode));
+  $('#tipPre').textContent = isPct ? '%' : '$';
+  $('#tipPre').style.order = isPct ? 2 : 0;
+  $('#tipLabel').textContent = isPct ? 'Tip percentage' : 'Tip amount';
+  $('#tipPresets').style.display = isPct ? 'flex' : 'none';
+  $('#tipInput').value = trimNum(b.tip_value);
+  $('#tipInput').step = isPct ? '0.5' : '0.01';
+
+  $('#tSubtotal').textContent = money(c.subtotal);
+  $('#tTax').textContent = money(c.tax);
+  $('#tTip').textContent = money(c.tip);
+  $('#tGrand').textContent = money(c.grand);
+
+  const bl = $('#breakdownList');
+  if (!b.people.length) {
+    bl.innerHTML = `<div class="empty" style="padding:20px 0"><p>Add people to see who owes what.</p></div>`;
+    $('#balanceNote').textContent = '';
+    return;
+  }
+  bl.innerHTML = c.people.map(p => `
+    <div class="person-line">
+      <span class="avatar" style="background:${p.color}">${initials(p.name)}</span>
+      <span class="who">
+        <div class="nm">${escapeHtml(p.name)}</div>
+        <div class="meta">${money(p.sub)} items · ${money(p.tax)} tax · ${money(p.tip)} tip</div>
+      </span>
+      <span class="amt">${money(p.total)}</span>
+    </div>`).join('');
+
+  if (c.unassigned > 0.005) {
+    $('#balanceNote').innerHTML = `<span style="color:var(--warn)">${money(c.unassigned)} of items are unassigned</span> and not included above.`;
+  } else {
+    const sumPeople = c.people.reduce((s,p)=>s+p.total,0);
+    $('#balanceNote').textContent = c.people.length ? `Splitting ${money(c.grand)} across ${c.people.length}.` : '';
+  }
+}
+
+// ---------- Helpers ----------
+function escapeHtml(s){ return (s??'').toString().replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function trimNum(n){ n = Number(n)||0; return Number.isInteger(n) ? n : parseFloat(n.toFixed(2)); }
+function fmtShare(n){ return Number.isInteger(n) ? n : parseFloat(n.toFixed(1)); }
+function hexA(hex, a){ const h=hex.replace('#',''); const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16); return `rgba(${r},${g},${b},${a})`; }
+
+// ---------- Data ops (optimistic + persist) ----------
+function reflect(bill){ state.bill = bill; render(); }
+
+async function refreshBills() {
+  state.bills = await api('GET', '/bills');
+}
+
+async function loadBill(id) {
+  state.bill = await api('GET', '/bills/' + id);
+  render();
+}
+
+async function init() {
+  await refreshBills();
+  if (!state.bills.length) {
+    const b = await api('POST', '/bills', { name: 'Dinner receipt' });
+    await refreshBills();
+    reflect(b);
+  } else {
+    await loadBill(state.bills[0].id);
+  }
+}
+
+// ---------- Event wiring ----------
+$('#billSelect').addEventListener('change', e => loadBill(Number(e.target.value)));
+
+$('#newBillBtn').addEventListener('click', async () => {
+  const b = await api('POST', '/bills', { name: 'New receipt' });
+  await refreshBills(); reflect(b);
+  $('#billTitle').focus(); $('#billTitle').select();
+});
+
+$('#deleteBillBtn').addEventListener('click', async () => {
+  if (!state.bill) return;
+  if (!confirm('Delete this receipt? This cannot be undone.')) return;
+  await api('DELETE', '/bills/' + state.bill.id);
+  await refreshBills();
+  if (state.bills.length) await loadBill(state.bills[0].id);
+  else { const b = await api('POST', '/bills', { name: 'Dinner receipt' }); await refreshBills(); reflect(b); }
+  toast('Receipt deleted');
+});
+
+$('#billTitle').addEventListener('input', e => {
+  state.bill.name = e.target.value;
+  debounce('title', 500, async () => { await api('PATCH', '/bills/'+state.bill.id, { name: state.bill.name }); await refreshBills(); render(); });
+});
+
+// people
+$('#peopleRow').addEventListener('click', async e => {
+  if (e.target.id === 'addPersonBtn') {
+    const name = prompt('Name of the person:');
+    if (!name || !name.trim()) return;
+    reflect(await api('POST', '/bills/'+state.bill.id+'/people', { name: name.trim() }));
+    return;
+  }
+  const del = e.target.closest('[data-del-person]');
+  if (del) { reflect(await api('DELETE', '/people/' + del.dataset.delPerson)); }
+});
+
+// add item
+$('#addItemForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const name = $('#itName').value.trim();
+  const qty = Number($('#itQty').value) || 1;
+  const price = Number($('#itPrice').value) || 0;
+  if (!name) return;
+  reflect(await api('POST', '/bills/'+state.bill.id+'/items', { name, quantity: qty, price }));
+  $('#itName').value=''; $('#itQty').value='1'; $('#itPrice').value=''; $('#itName').focus();
+});
+
+// item edits, deletes, assignment chips (delegated)
+$('#itemsList').addEventListener('click', async e => {
+  const del = e.target.closest('[data-del-item]');
+  if (del) { reflect(await api('DELETE', '/items/' + del.dataset.delItem)); return; }
+
+  const stepBtn = e.target.closest('.stepper button');
+  if (stepBtn) {
+    e.stopPropagation();
+    const chip = stepBtn.closest('.chip');
+    const cur = Number(chip.dataset.share) || 1;
+    const next = Math.max(0, cur + Number(stepBtn.dataset.step));
+    await setAssignment(Number(chip.dataset.item), Number(chip.dataset.person), next);
+    return;
+  }
+  const chip = e.target.closest('.chip');
+  if (chip) {
+    const cur = Number(chip.dataset.share) || 0;
+    await setAssignment(Number(chip.dataset.item), Number(chip.dataset.person), cur > 0 ? 0 : 1);
+  }
+});
+
+$('#itemsList').addEventListener('change', async e => {
+  const inp = e.target.closest('[data-edit]');
+  if (!inp) return;
+  const row = inp.closest('.item');
+  const id = Number(row.dataset.id);
+  const field = inp.dataset.edit;
+  const val = field === 'name' ? inp.value.trim() : (Number(inp.value) || 0);
+  reflect(await api('PATCH', '/items/'+id, { [field]: val }));
+});
+
+async function setAssignment(itemId, personId, shares) {
+  // optimistic
+  const b = state.bill;
+  const idx = b.assignments.findIndex(a => a.item_id===itemId && a.person_id===personId);
+  if (shares <= 0) { if (idx>=0) b.assignments.splice(idx,1); }
+  else if (idx>=0) b.assignments[idx].shares = shares;
+  else b.assignments.push({ item_id: itemId, person_id: personId, shares });
+  render();
+  try { state.bill = await api('PUT', '/assignments', { item_id: itemId, person_id: personId, shares }); render(); }
+  catch { toast('Could not save — retrying view'); await loadBill(b.id); }
+}
+
+// tax + tip
+$('#taxInput').addEventListener('input', e => {
+  state.bill.tax_amount = Number(e.target.value) || 0;
+  render();
+  debounce('tax', 400, () => persistBillMeta());
+});
+$('#tipInput').addEventListener('input', e => {
+  state.bill.tip_value = Number(e.target.value) || 0;
+  render();
+  debounce('tip', 400, () => persistBillMeta());
+});
+$('#tipToggle').addEventListener('click', e => {
+  const btn = e.target.closest('button'); if (!btn) return;
+  state.bill.tip_mode = btn.dataset.mode;
+  state.bill.tip_value = 0;
+  render(); persistBillMeta();
+});
+$('#tipPresets').addEventListener('click', e => {
+  const btn = e.target.closest('button'); if (!btn) return;
+  state.bill.tip_mode = 'percent';
+  state.bill.tip_value = Number(btn.dataset.pct);
+  render(); persistBillMeta();
+});
+
+async function persistBillMeta() {
+  const b = state.bill;
+  await api('PATCH', '/bills/'+b.id, { tax_amount: b.tax_amount, tip_mode: b.tip_mode, tip_value: b.tip_value });
+}
+
+function debounce(key, ms, fn) {
+  clearTimeout(saveTimer[key]);
+  saveTimer[key] = setTimeout(fn, ms);
+}
+
+init().catch(err => { console.error(err); toast('Failed to load'); });
+</script>
+</body>
+</html>
